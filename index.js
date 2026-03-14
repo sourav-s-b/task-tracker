@@ -1,13 +1,16 @@
+#!/usr/bin/env node
+
 const path = require('path');
 const fs = require('fs');
 const { parseArgs } = require('node:util');
 
 //helpful constants
 const filePath = path.join(__dirname, 'data.json');
-const STATUS = ["todo", "in-progress", "done"]; const F_BLUE = "\x1b[34m";
-const F_GREEN = "\x1b[32m";
-const F_RED = "\x1b[31m";
-const F_YELLOW = "\x1b[33m";
+const STATUS = ["todo", "in-progress", "done"];
+const BLUE = "\x1b[34m";
+const GREEN = "\x1b[32m";
+const RED = "\x1b[31m";
+const YELLOW = "\x1b[33m";
 const RESET = "\x1b[0m";
 
 
@@ -16,11 +19,36 @@ const RESET = "\x1b[0m";
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const getData = () => JSON.parse(fs.readFileSync(filePath, 'utf8') || []);
 const log = {
-    info: (msg) => console.log(`${F_BLUE}[INFO] ${msg}${RESET}`),
-    success: (msg) => console.log(`${F_GREEN}[SUCCESS] ${msg}${RESET}`),
-    error: (msg) => console.log(`${F_RED}[ERROR] ${msg}${RESET}`),
-    title: (msg) => console.log(`${F_YELLOW}[MSG] ${msg}${RESET}`)
+    info: (msg) => console.log(`${BLUE}[INFO] ${msg}${RESET}`),
+    success: (msg) => console.log(`${GREEN}[SUCCESS] ${msg}${RESET}`),
+    error: (msg) => console.log(`${RED}[ERROR] ${msg}${RESET}`),
+    title: (msg) => console.log(`${YELLOW}[MSG] ${msg}${RESET}`)
 };
+
+function showHelp() {
+    console.log(`
+        ${YELLOW}TASK TRACKER - MANUAL${RESET}
+        ================================================
+        ${BLUE}USAGE:${RESET}
+        ttrack <command> [arguments] [flags]
+
+        ${BLUE}COMMANDS:${RESET}
+        ${GREEN}add${RESET} <description>          Add a new task
+        ${GREEN}update${RESET} <id> <description>   Update a task description
+        ${GREEN}delete${RESET} <id>               Delete a task by ID
+        ${GREEN}list${RESET} [status]              List tasks (optional: todo, in-progress, done)
+        ${GREEN}mark-in-progress${RESET} <id>     Set status to in-progress
+        ${GREEN}mark-done${RESET} <id>            Set status to done
+        ${GREEN}mark-todo${RESET} <id>            Set status back to todo
+
+        ${BLUE}FLAGS:${RESET}
+        ${YELLOW}-l, --limit${RESET} <number>      Limit the number of tasks shown
+        ${YELLOW}-d, --description${RESET}        Show only the description column
+        ${YELLOW}-s, --status${RESET}             Show only the status column
+
+        ================================================
+    `);
+}
 
 //arguments parsers
 const options = {
@@ -68,6 +96,7 @@ async function baseInfo() {
         console.table(pendingTasks.slice(-5).reverse());
     }
 
+    log.info("use -help for manual or instruction on how to use the commands")
 
     console.log("---------------------------TASK-TRACKER---------------------------\n");
 }
@@ -93,8 +122,8 @@ async function listTask(dataList = getData()) {
 }
 
 function addTask(description) {
-    let dataList = getData();
     let date = new Date();
+    let dataList = getData();
     let addData = {
         id: dataList.length != 0 ? dataList.at(-1).id + 1 : 1,
         description: description,
@@ -110,6 +139,7 @@ function addTask(description) {
 }
 
 function updateTask(id, desc) {
+    let date = new Date();
     log.info(`Updating Row with id ${id}`);
     let dataList = getData();
     let dataIndex = dataList.findIndex(task => task.id === id);
@@ -120,6 +150,7 @@ function updateTask(id, desc) {
     }
 
     dataList[dataIndex].description = desc;
+    dataList[dataIndex].updatedAt = date.toLocaleString();
 
     fs.writeFileSync(filePath, JSON.stringify(dataList, null, 2));
 
@@ -128,6 +159,7 @@ function updateTask(id, desc) {
 }
 
 function deleteTask(id) {
+    let date = new Date();
     log.info(`Deleting Row with id ${id}`);
     let dataList = getData();
     let dataIndex = dataList.findIndex(task => task.id === id);
@@ -142,6 +174,26 @@ function deleteTask(id) {
     log.success("Deletion has been successfull");
 }
 
+function markTask(id, status) {
+    let date = new Date();
+    log.info(`Marking Row with id ${id}`);
+    let dataList = getData();
+    let dataIndex = dataList.findIndex(task => task.id === id);
+
+    if (dataIndex == -1) {
+        log.error(`Can't find any task with the given id: ${id}`);
+        return;
+    }
+
+    dataList[dataIndex].status = status;
+    dataList[dataIndex].updatedAt = date.toLocaleString();
+
+    fs.writeFileSync(filePath, JSON.stringify(dataList, null, 2));
+
+    log.success("Updation of status has been successfull");
+    console.table([dataList[dataIndex]]);
+}
+
 async function mainMenu() {
 
     log.info("Intializing");
@@ -150,10 +202,15 @@ async function mainMenu() {
         log.info("data.json doesn't exists. Creating data.json.");
         fs.writeFileSync(filePath, JSON.stringify([], null));
         await sleep(1000);
-        log.success('File created successfully\n\n');
+        log.success('File created successfully\n');
     }
     log.success("Done\n");
-    log.title("Welcome to Task Tracker\n\n");
+    log.title("Welcome to Task Tracker\n");
+
+    if ("help" in values) {
+        showHelp();
+        return;
+    }
 
     if (positionals.length == 0) {
         await baseInfo();
@@ -174,23 +231,41 @@ async function mainMenu() {
                 listTask(sortedList);
                 break;
             case "update":
-                if (positionals.length < 3) {
-                    log.error("You have insufficient parameters for an updation. Please read help for instructions");
+                if (positionals.length != 3) {
+                    log.error("You have incorrect parameters for an updation. Please read help for instructions");
                     break;
                 }
                 let [id, desc] = positionals.slice(-2);
                 updateTask(Number(id), desc);
                 break;
             case "delete": {
-                if (positionals.length < 2) {
+                if (positionals.length != 2) {
                     log.error("You have insufficient parameters for an deletion. Please read help for instructions");
                     break;
                 }
-                let id = positionals.slice(-1);
+                let id = positionals[1];
                 deleteTask(Number(id));
                 break;
             }
+            default:
+                if (positionals[0].includes("mark")) {
+                    if (positionals.length < 2) {
+                        log.error("You have insufficient parameters for an marking. Please read help for instructions");
+                        break;
+                    }
 
+                    let status = positionals[0].slice(5);
+                    if (!STATUS.includes(status)) {
+                        log.error(`Invalid status: ${status}. Use: ${STATUS.join(', ')}`);
+                        break;
+                    }
+                    let id = positionals[1];
+                    markTask(Number(id), status);
+                    break;
+                } else {
+                    log.error("Unkown command. Please read help for instructions");
+                    break;
+                }
         }
     }
 }
