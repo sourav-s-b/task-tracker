@@ -2,7 +2,7 @@
 
 A simple command-line interface (CLI) to track what you need to do, what you have done, and what you are currently working on. Part of the Beginner's Projects on roadmap.sh, built to learn Backend Development.
 
-Link: https://roadmap.sh/projects
+Link: https://roadmap.sh/projects/task-tracker
 
 ---
 
