@@ -1,20 +1,44 @@
 const path = require('path');
 const fs = require('fs');
 const { parseArgs } = require('node:util');
+const chalk = require('chalk');
 
-const filePath = path.join(__dirname, 'data.json')
+//helpful constants
+const filePath = path.join(__dirname, 'data.json');
+const STATUS = ["todo", "in-progress", "done"];
 
 //helper functiosn
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const getData = () => JSON.parse(fs.readFileSync(filePath, 'utf8') || []);
+const log = {
+    info: (msg) => console.log(chalk.blue('[INFO]', msg)),
+    success: (msg) => console.log(chalk.green('[SUCCESS]', msg)),
+    error: (msg) => console.log(chalk.red('[ERROR]', msg)),
+    title: (msg) => console.log(chalk.yellow('[MSG]', msg))
+}
 
 //arguments parsers
 const options = {
 
-    help: {
+    'help': {
         type: 'boolean',
         short: 'h'
-    }
+    },
+
+    'limit': {
+        type: 'string',
+        short: 'l',
+    },
+
+    'description': {
+        type: 'boolean',
+        short: 'd',
+    },
+    'status': {
+        type: 'boolean',
+        short: 's',
+    },
+
 
 };
 
@@ -24,26 +48,94 @@ const { values, positionals } = parseArgs({
 });
 
 
+
+
 async function baseInfo() {
     console.log("---------------------------TASK-TRACKER---------------------------\n");
 
-    if (!fs.existsSync(filePath)) {
-        console.log(`[LOG]: data.json doesn't exists. Creating data.json.`)
-        fs.writeFileSync(filePath, JSON.stringify([], null));
-        await sleep(1000);
-        console.success('[LOG]: File created successfully\n\n');
+    let pendingTasks = (getData()).filter(task => task.status == 'in-progress');
+
+    console.log(`Welcome Human, You currently have ${pendingTasks.length} pending  tasks in your List`);
+    if (pendingTasks.length == 0) {
+        console.log(`Please use this task tracker to catalog your tasks`);
+    } else {
+        log.info("Showing latest pending task");
+        console.table(pendingTasks.slice(-5).reverse());
     }
 
-    pendingTasks = (getData()).filter(task => task.status = 'in-progress');
 
-    console.log(`Welcome Human, You currently have ${pendingTasks.length} tasks in your List`);
-
+    console.log("---------------------------TASK-TRACKER---------------------------\n");
 }
 
+async function listTask(dataList = getData()) {
+    let li;
+
+    if ("description" in values || "status" in values) {
+        li = ["id"];
+        if ("description" in values) li.push("description");
+        if ("status" in values) li.push("status");
+    }
+
+    if ("limit" in values) {
+        dataList = dataList.slice(-1 * Number(values.limit)).reverse();
+    }
+
+    if (dataList.length == 0) {
+        log.info("Empty table, Please try to add tasks, or do another command");
+    } else {
+        console.table(dataList, li);
+    }
+}
+
+async function addTask(description) {
+    let dataList = getData();
+    let date = new Date();
+    let addData = {
+        id: dataList.length != 0 ? dataList.at(-1).id + 1 : 1,
+        description: description,
+        status: "todo",
+        createdAt: date.toLocaleString(),
+        updatedAt: date.toLocaleString(),
+    }
+    dataList.push(addData);
+    console.table([addData]);
+    fs.writeFileSync(filePath, JSON.stringify(dataList, null, 2));
+
+    log.success("Added data to the task list successfully!");
+}
 
 async function mainMenu() {
+
+    log.info("Intializing");
+    await sleep(500);
+    if (!fs.existsSync(filePath)) {
+        log.info("data.json doesn't exists. Creating data.json.");
+        fs.writeFileSync(filePath, JSON.stringify([], null));
+        await sleep(1000);
+        log.success('File created successfully\n\n');
+    }
+    log.success("Done\n");
+    log.title("Welcome to Task Tracker\n\n");
+
     if (positionals.length == 0) {
         await baseInfo();
+    } else {
+        switch (positionals[0]) {
+            case "add":
+                if (positionals.length < 2) {
+                    log.error("Need Task description for adding task");
+                    break;
+                }
+                addTask(positionals[1]);
+                break;
+            case "list":
+                let sortedList;
+                if (STATUS.includes(positionals[1])) {
+                    sortedList = getData().filter(task => task.status === positionals[1]);
+                }
+                listTask(sortedList);
+                break;
+        }
     }
 }
 
