@@ -20,8 +20,5 @@
   "bugs": {
     "url": "https://github.com/sourav-s-b/task-tracker/issues"
   },
-  "homepage": "https://github.com/sourav-s-b/task-tracker#readme",
-  "dependencies": {
-    "chalk": "^4.1.2"
-  }
+  "homepage": "https://github.com/sourav-s-b/task-tracker#readme"
 }

@@ -1,21 +1,26 @@
 const path = require('path');
 const fs = require('fs');
 const { parseArgs } = require('node:util');
-const chalk = require('chalk');
 
 //helpful constants
 const filePath = path.join(__dirname, 'data.json');
-const STATUS = ["todo", "in-progress", "done"];
+const STATUS = ["todo", "in-progress", "done"]; const F_BLUE = "\x1b[34m";
+const F_GREEN = "\x1b[32m";
+const F_RED = "\x1b[31m";
+const F_YELLOW = "\x1b[33m";
+const RESET = "\x1b[0m";
+
+
 
 //helper functiosn
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const getData = () => JSON.parse(fs.readFileSync(filePath, 'utf8') || []);
 const log = {
-    info: (msg) => console.log(chalk.blue('[INFO]', msg)),
-    success: (msg) => console.log(chalk.green('[SUCCESS]', msg)),
-    error: (msg) => console.log(chalk.red('[ERROR]', msg)),
-    title: (msg) => console.log(chalk.yellow('[MSG]', msg))
-}
+    info: (msg) => console.log(`${F_BLUE}[INFO] ${msg}${RESET}`),
+    success: (msg) => console.log(`${F_GREEN}[SUCCESS] ${msg}${RESET}`),
+    error: (msg) => console.log(`${F_RED}[ERROR] ${msg}${RESET}`),
+    title: (msg) => console.log(`${F_YELLOW}[MSG] ${msg}${RESET}`)
+};
 
 //arguments parsers
 const options = {
@@ -115,8 +120,26 @@ function updateTask(id, desc) {
     }
 
     dataList[dataIndex].description = desc;
-    log.success["Updation has been successfull"];
+
+    fs.writeFileSync(filePath, JSON.stringify(dataList, null, 2));
+
+    log.success("Updation has been successfull");
     console.table([dataList[dataIndex]]);
+}
+
+function deleteTask(id) {
+    log.info(`Deleting Row with id ${id}`);
+    let dataList = getData();
+    let dataIndex = dataList.findIndex(task => task.id === id);
+
+    if (dataIndex == -1) {
+        log.error(`Can't find any task with the given id: ${id}`);
+        return;
+    }
+
+    dataList.splice(dataIndex, 1);
+    fs.writeFileSync(filePath, JSON.stringify(dataList, null, 2));
+    log.success("Deletion has been successfull");
 }
 
 async function mainMenu() {
@@ -157,6 +180,17 @@ async function mainMenu() {
                 }
                 let [id, desc] = positionals.slice(-2);
                 updateTask(Number(id), desc);
+                break;
+            case "delete": {
+                if (positionals.length < 2) {
+                    log.error("You have insufficient parameters for an deletion. Please read help for instructions");
+                    break;
+                }
+                let id = positionals.slice(-1);
+                deleteTask(Number(id));
+                break;
+            }
+
         }
     }
 }
