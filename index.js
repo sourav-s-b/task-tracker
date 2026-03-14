@@ -48,7 +48,7 @@ const { values, positionals } = parseArgs({
 });
 
 
-
+// COMMAND functions
 
 async function baseInfo() {
     console.log("---------------------------TASK-TRACKER---------------------------\n");
@@ -87,7 +87,7 @@ async function listTask(dataList = getData()) {
     }
 }
 
-async function addTask(description) {
+function addTask(description) {
     let dataList = getData();
     let date = new Date();
     let addData = {
@@ -102,6 +102,21 @@ async function addTask(description) {
     fs.writeFileSync(filePath, JSON.stringify(dataList, null, 2));
 
     log.success("Added data to the task list successfully!");
+}
+
+function updateTask(id, desc) {
+    log.info(`Updating Row with id ${id}`);
+    let dataList = getData();
+    let dataIndex = dataList.findIndex(task => task.id === id);
+
+    if (dataIndex == -1) {
+        log.error(`Can't find any task with the given id: ${id}`);
+        return;
+    }
+
+    dataList[dataIndex].description = desc;
+    log.success["Updation has been successfull"];
+    console.table([dataList[dataIndex]]);
 }
 
 async function mainMenu() {
@@ -135,6 +150,13 @@ async function mainMenu() {
                 }
                 listTask(sortedList);
                 break;
+            case "update":
+                if (positionals.length < 3) {
+                    log.error("You have insufficient parameters for an updation. Please read help for instructions");
+                    break;
+                }
+                let [id, desc] = positionals.slice(-2);
+                updateTask(Number(id), desc);
         }
     }
 }
